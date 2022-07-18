@@ -1,7 +1,7 @@
 
 // SPDX-License-Identifier: Unlicensed
 
-pragma solidity ^0.7.6;
+pragma solidity ^0.8.15;
 
 abstract contract Context {
     function _msgSender() internal view virtual returns (address payable) {
@@ -856,17 +856,7 @@ contract GreedyVerse is Context, IERC20, Ownable {
         _isExcludedFromFee[account] = false;
     }
     
-    function setTaxFeePercent(uint256 taxFee) external onlyOwner() {
-        _taxFee = taxFee;
-    }
     
-    function setLiquidityFeePercent(uint256 liquidityFee) external onlyOwner() {
-        _liquidityFee = liquidityFee;
-    }
-    
-    function setMaxTxAmount(uint256 maxTxAmount) external onlyOwner() {
-        _maxTxAmount = maxTxAmount;
-    }
          
     function manualSend() external onlyOwner {
         uint256 contractETHBalance = address(this).balance;
