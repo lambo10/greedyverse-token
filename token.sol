@@ -1,276 +1,12 @@
+pragma solidity ^0.8.7;
 
-// SPDX-License-Identifier: Unlicensed
-
-pragma solidity ^0.8.15;
-
-abstract contract Context {
-    function _msgSender() internal view virtual returns (address payable) {
-        return payable(msg.sender);
-    }
-
-    function _msgData() internal view virtual returns (bytes memory) {
-        this; // silence state mutability warning without generating bytecode - see https://github.com/ethereum/solidity/issues/2691
-        return msg.data;
-    }
-}
+import "@openzeppelin/contracts/token/ERC1155/ERC1155.sol";
+import "@openzeppelin/contracts/access/Ownable.sol";
+import"@openzeppelin/contracts/utils/math/SafeMath.sol";
+import "@uniswap/v2-core/contracts/interfaces/IUniswapV2Pair.sol";
 
 
-interface IERC20 {
-
-    function totalSupply() external view returns (uint256);
-    function balanceOf(address account) external view returns (uint256);
-    function transfer(address recipient, uint256 amount) external returns (bool);
-    function allowance(address owner, address spender) external view returns (uint256);
-    function approve(address spender, uint256 amount) external returns (bool);
-    function transferFrom(address sender, address recipient, uint256 amount) external returns (bool);
-    event Transfer(address indexed from, address indexed to, uint256 value);
-    event Approval(address indexed owner, address indexed spender, uint256 value);
-    
-
-}
-
-library SafeMath {
-
-    function add(uint256 a, uint256 b) internal pure returns (uint256) {
-        uint256 c = a + b;
-        require(c >= a, "SafeMath: addition overflow");
-
-        return c;
-    }
-
-    function sub(uint256 a, uint256 b) internal pure returns (uint256) {
-        return sub(a, b, "SafeMath: subtraction overflow");
-    }
-
-    function sub(uint256 a, uint256 b, string memory errorMessage) internal pure returns (uint256) {
-        require(b <= a, errorMessage);
-        uint256 c = a - b;
-
-        return c;
-    }
-
-    function mul(uint256 a, uint256 b) internal pure returns (uint256) {
-        if (a == 0) {
-            return 0;
-        }
-
-        uint256 c = a * b;
-        require(c / a == b, "SafeMath: multiplication overflow");
-
-        return c;
-    }
-
-
-    function div(uint256 a, uint256 b) internal pure returns (uint256) {
-        return div(a, b, "SafeMath: division by zero");
-    }
-
-    function div(uint256 a, uint256 b, string memory errorMessage) internal pure returns (uint256) {
-        require(b > 0, errorMessage);
-        uint256 c = a / b;
-        // assert(a == b * c + a % b); // There is no case in which this doesn't hold
-
-        return c;
-    }
-
-    function mod(uint256 a, uint256 b) internal pure returns (uint256) {
-        return mod(a, b, "SafeMath: modulo by zero");
-    }
-
-    function mod(uint256 a, uint256 b, string memory errorMessage) internal pure returns (uint256) {
-        require(b != 0, errorMessage);
-        return a % b;
-    }
-}
-
-library Address {
-
-    function isContract(address account) internal view returns (bool) {
-        // According to EIP-1052, 0x0 is the value returned for not-yet created accounts
-        // and 0xc5d2460186f7233c927e7db2dcc703c0e500b653ca82273b7bfad8045d85a470 is returned
-        // for accounts without code, i.e. `erewr('')`
-        bytes32 codehash;
-        bytes32 accountHash = 0xc5d2460186f7233c927e7db2dcc703c0e500b653ca82273b7bfad8045d85a470;
-        // solhint-disable-next-line no-inline-assembly
-        assembly { codehash := extcodehash(account) }
-        return (codehash != accountHash && codehash != 0x0);
-    }
-
-    function sendValue(address payable recipient, uint256 amount) internal {
-        require(address(this).balance >= amount, "Address: insufficient balance");
-
-        // solhint-disable-next-line avoid-low-level-calls, avoid-call-value
-        (bool success, ) = recipient.call{ value: amount }("");
-        require(success, "Address: unable to send value, recipient may have reverted");
-    }
-
-
-    function functionCall(address target, bytes memory data) internal returns (bytes memory) {
-      return functionCall(target, data, "Address: low-level call failed");
-    }
-
-    function functionCall(address target, bytes memory data, string memory errorMessage) internal returns (bytes memory) {
-        return _functionCallWithValue(target, data, 0, errorMessage);
-    }
-
-    function functionCallWithValue(address target, bytes memory data, uint256 value) internal returns (bytes memory) {
-        return functionCallWithValue(target, data, value, "Address: low-level call with value failed");
-    }
-
-    function functionCallWithValue(address target, bytes memory data, uint256 value, string memory errorMessage) internal returns (bytes memory) {
-        require(address(this).balance >= value, "Address: insufficient balance for call");
-        return _functionCallWithValue(target, data, value, errorMessage);
-    }
-
-    function _functionCallWithValue(address target, bytes memory data, uint256 weiValue, string memory errorMessage) private returns (bytes memory) {
-        require(isContract(target), "Address: call to non-contract");
-
-        (bool success, bytes memory returndata) = target.call{ value: weiValue }(data);
-        if (success) {
-            return returndata;
-        } else {
-            
-            if (returndata.length > 0) {
-                assembly {
-                    let returndata_size := mload(returndata)
-                    revert(add(32, returndata), returndata_size)
-                }
-            } else {
-                revert(errorMessage);
-            }
-        }
-    }
-}
-
-contract Ownable is Context {
-    address private _owner;
-    address private _previousOwner;
-    uint256 private _lockTime;
-
-    event OwnershipTransferred(address indexed previousOwner, address indexed newOwner);
-
-    constructor () {
-        address msgSender = _msgSender();
-        _owner = msgSender;
-        emit OwnershipTransferred(address(0), msgSender);
-    }
-
-    function owner() public view returns (address) {
-        return _owner;
-    }   
-    
-    modifier onlyOwner() {
-        require(_owner == _msgSender(), "Ownable: caller is not the owner");
-        _;
-    }
-    
-    function renounceOwnership() public virtual onlyOwner {
-        emit OwnershipTransferred(_owner, address(0));
-        _owner = address(0);
-    }
-
-    function transferOwnership(address newOwner) public virtual onlyOwner {
-        require(newOwner != address(0), "Ownable: new owner is the zero address");
-        emit OwnershipTransferred(_owner, newOwner);
-        _owner = newOwner;
-    }
-
-    function getUnlockTime() public view returns (uint256) {
-        return _lockTime;
-    }
-    
-    function getTime() public view returns (uint256) {
-        return block.timestamp;
-    }
-
-    function lock(uint256 time) public virtual onlyOwner {
-        _previousOwner = _owner;
-        _owner = address(0);
-        _lockTime = block.timestamp + time;
-        emit OwnershipTransferred(_owner, address(0));
-    }
-    
-    function unlock() public virtual {
-        require(_previousOwner == msg.sender, "You don't have permission to unlock");
-        require(block.timestamp > _lockTime , "Contract is locked until 7 days");
-        emit OwnershipTransferred(_owner, _previousOwner);
-        _owner = _previousOwner;
-    }
-}
-
-// pragma solidity >=0.5.0;
-
-interface IUniswapV2Factory {
-    event PairCreated(address indexed token0, address indexed token1, address pair, uint);
-
-    function feeTo() external view returns (address);
-    function feeToSetter() external view returns (address);
-
-    function getPair(address tokenA, address tokenB) external view returns (address pair);
-    function allPairs(uint) external view returns (address pair);
-    function allPairsLength() external view returns (uint);
-
-    function createPair(address tokenA, address tokenB) external returns (address pair);
-
-    function setFeeTo(address) external;
-    function setFeeToSetter(address) external;
-}
-
-
-// pragma solidity >=0.5.0;
-
-interface IUniswapV2Pair {
-    event Approval(address indexed owner, address indexed spender, uint value);
-    event Transfer(address indexed from, address indexed to, uint value);
-
-    function name() external pure returns (string memory);
-    function symbol() external pure returns (string memory);
-    function decimals() external pure returns (uint8);
-    function totalSupply() external view returns (uint);
-    function balanceOf(address owner) external view returns (uint);
-    function allowance(address owner, address spender) external view returns (uint);
-
-    function approve(address spender, uint value) external returns (bool);
-    function transfer(address to, uint value) external returns (bool);
-    function transferFrom(address from, address to, uint value) external returns (bool);
-
-    function DOMAIN_SEPARATOR() external view returns (bytes32);
-    function PERMIT_TYPEHASH() external pure returns (bytes32);
-    function nonces(address owner) external view returns (uint);
-
-    function permit(address owner, address spender, uint value, uint deadline, uint8 v, bytes32 r, bytes32 s) external;
-    
-    event Burn(address indexed sender, uint amount0, uint amount1, address indexed to);
-    event Swap(
-        address indexed sender,
-        uint amount0In,
-        uint amount1In,
-        uint amount0Out,
-        uint amount1Out,
-        address indexed to
-    );
-    event Sync(uint112 reserve0, uint112 reserve1);
-
-    function MINIMUM_LIQUIDITY() external pure returns (uint);
-    function factory() external view returns (address);
-    function token0() external view returns (address);
-    function token1() external view returns (address);
-    function getReserves() external view returns (uint112 reserve0, uint112 reserve1, uint32 blockTimestampLast);
-    function price0CumulativeLast() external view returns (uint);
-    function price1CumulativeLast() external view returns (uint);
-    function kLast() external view returns (uint);
-
-    function burn(address to) external returns (uint amount0, uint amount1);
-    function swap(uint amount0Out, uint amount1Out, address to, bytes calldata data) external;
-    function skim(address to) external;
-    function sync() external;
-
-    function initialize(address, address) external;
-}
-
-// pragma solidity >=0.6.2;
-
-interface IUniswapV2Router01 {
+interface IPancakeRouter01 {
     function factory() external pure returns (address);
     function WETH() external pure returns (address);
 
@@ -364,11 +100,11 @@ interface IUniswapV2Router01 {
     function getAmountsIn(uint amountOut, address[] calldata path) external view returns (uint[] memory amounts);
 }
 
+// File: contracts\interfaces\IPancakeRouter02.sol
 
+pragma solidity >=0.6.2;
 
-// pragma solidity >=0.6.2;
-
-interface IUniswapV2Router02 is IUniswapV2Router01 {
+interface IPancakeRouter02 is IPancakeRouter01 {
     function removeLiquidityETHSupportingFeeOnTransferTokens(
         address token,
         uint liquidity,
@@ -409,477 +145,308 @@ interface IUniswapV2Router02 is IUniswapV2Router01 {
     ) external;
 }
 
-contract GreedyVerse is Context, IERC20, Ownable {
+
+
+contract greedyverseNfts is ERC1155, Ownable{
     using SafeMath for uint256;
-    using Address for address;
+
+    address payable public marketing_contestWallet;
+    address payable public teamWallet;
+    address payable public gameDevWallet;
+
+    string public name = "GreedyVerseNFT";
+    string public symbol = "GNFT";
+
+    uint256[30] public maxNftsAmount = [90000, 30000, 1800000, 1800000, 60000, 60000, 48000, 48000, 27000, 30000, 90000, 30000, 8100, 13500, 21600, 120000, 180000, 21600, 240000, 120000, 7200, 8100, 9750, 30000, 120000, 30000, 240000, 480000, 120000, 60000];
     
-    address payable private burnAddress = payable(0x000000000000000000000000000000000000dEaD); // dev Address
-    address public immutable deadAddress = 0x000000000000000000000000000000000000dEaD;
-    mapping (address => uint256) private _rOwned;
-    mapping (address => uint256) private _tOwned;
-    mapping (address => mapping (address => uint256)) private _allowances;
+    uint256[30] public mintedNftsAmount = [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0];
 
-    mapping (address => bool) private _isExcludedFromFee;
+    uint256[30] public nftMintPrice = [
+        40000000000000000,
+        120000000000000000,
+        1500000000000000,
+        1500000000000000,
+        60000000000000000,
+        60000000000000000,
+        75000000000000000,
+        75000000000000000,
+        133333333333333330,
+        120000000000000000,
+        40000000000000000,
+        120000000000000000,
+        444444444444444400,
+        266666666666666660,
+        166666666666666660,
+        30000000000000000,
+        20000000000000000,
+        166666666666666660,
+        15000000000000000,
+        30000000000000000,
+        500000000000000000,
+        444444444444444400,
+        369230769230769250,
+        120000000000000000,
+        30000000000000000,
+        120000000000000000,
+        15000000000000000,
+        7500000000000000,
+        30000000000000000,
+        120000000000000000
+    ];
 
-    mapping (address => bool) private _isExcluded;
-    address[] private _excluded;
+     uint256 public spMaxNftAmount_perNft = 40;
+     uint256 public MaxStoneWall_per_player = 30;
+     uint256 public MaxWoodWall_per_player = 30;
+     uint256 public MaxLand_per_player = 5;
+     uint256 public MaxDragon_per_player = 2;
+     uint256 public MaxBabyDragon_per_player = 2;
+     uint256 public MaxGolem_per_player = 3;
+     uint256 public MaxGrandWarden_per_player = 3;
+     uint256 public MaxDrone_per_player = 3;
+     address greedyverseToken = 0xb546fC62DcB523C4f5F1581021Bf27A8019b5516;
+
+     IPancakeRouter02 public immutable pancakeswapV2Router;
+
+     struct nftItem
+        {
+            uint256 totalHealth;
+            uint256 amount;
+        }
+
+    mapping (address => mapping(uint256 => nftItem)) public holders;
+
+    mapping (address => mapping(uint256 => uint256)) public singlePlayeramount;
+
+    mapping(address => bool) isWhiteListed;
+
+    bool public Mint = false;
+    bool public PublicMint = false;
+
+
+    constructor() ERC1155("https://greedyverse.co/api/getNftMetaData.php?id={id}"){
+      marketing_contestWallet = payable(0x22B7b595E4BD0304BBB55e475a01adc573986c5F);
+      teamWallet = payable(0x9e560d6A9E13cf6fBe7A4819AeaF9a05453932C3);
+      gameDevWallet = payable(0x64216e7cD90a112d547C92018e3F8fd2055e4B01);
+
+      IPancakeRouter02 _pancakeswapV2Router = IPancakeRouter02(0x10ED43C718714eb63d5aA57B78B54704E256024E);
+      pancakeswapV2Router = _pancakeswapV2Router;
+    }
+
+    function addToWhiteList(address user) public onlyOwner{
+        isWhiteListed[user] = true;
+    }
+
+     function removeFromWhiteList(address user) public onlyOwner{
+        isWhiteListed[user] = false;
+    }
+
+    function whiteListMint(uint256 id, uint256 amount) public payable{
+        require(!PublicMint, "Private mint is ended");
+        require(isWhiteListed[msg.sender], "Address not whitelisted for minting");
+        _mint(id,amount);
+    }
+
+     function revive(uint256 id, uint256 amount) public payable{
+        require(msg.sender != address(0), "Cannot revive on a zero address");
+        require(msg.value >= (nftMintPrice[id].div(2)).mul(amount), "Amount too small to revive nft");
+
+        holders[msg.sender][id].totalHealth = (holders[msg.sender][id].totalHealth).add((nftMintPrice[id].div(2)).mul(amount));
+    }
+
+    function payWinnings(uint256[] memory player1destructionlist, uint256[] memory player2destructionlist, address player1, address player2) public onlyOwner{
+        uint256 TotalPlayer1payment = 0;
+        uint256 TotalPlayer2payment = 0;
    
-    uint256 private constant MAX = ~uint256(0);
-    uint256 private _tTotal = 1000000000 * 10**9;
-    uint256 private _rTotal = (MAX - (MAX % _tTotal));
-    uint256 private _tFeeTotal;
-
-    string private _name = unicode"GreedyVerse";
-    string private _symbol = unicode"GVERSE";
-    uint8 private _decimals = 9;
-
-
-    uint256 public _taxFee = 3;
-    uint256 private _previousTaxFee = _taxFee;
-    
-    uint256 public _liquidityFee = 3;
-    uint256 private _previousLiquidityFee = _liquidityFee;
-    
-    uint256 private burnFee = 2;
-    
-    uint256 public _maxTxAmount = 250000000 * 10**9;
-    uint256 private minimumTokensBeforeSwap = 1754251 * 10**9; 
-
-    IUniswapV2Router02 public immutable uniswapV2Router;
-    address public immutable uniswapV2Pair;
-    
-    bool inSwapAndLiquify;
-    bool public swapAndLiquifyEnabled = true;
-
-    
-    event RewardLiquidityProviders(uint256 tokenAmount);
-    event SwapAndLiquifyEnabledUpdated(bool enabled);
-    event SwapAndLiquify(
-        uint256 tokensSwapped,
-        uint256 ethReceived,
-        uint256 tokensIntoLiqudity
-    );
-    
-    event SwapETHForTokens(
-        uint256 amountIn,
-        address[] path
-    );
-    
-    event SwapTokensForETH(
-        uint256 amountIn,
-        address[] path
-    );
-    
-    modifier lockTheSwap {
-        inSwapAndLiquify = true;
-        _;
-        inSwapAndLiquify = false;
-    }
-    
-    constructor () {
-        _rOwned[_msgSender()] = _rTotal;
-        
-        IUniswapV2Router02 _uniswapV2Router = IUniswapV2Router02(0x10ED43C718714eb63d5aA57B78B54704E256024E);
-        uniswapV2Pair = IUniswapV2Factory(_uniswapV2Router.factory())
-            .createPair(address(this), _uniswapV2Router.WETH());
-
-        uniswapV2Router = _uniswapV2Router;
-
-        
-        _isExcludedFromFee[owner()] = true;
-        _isExcludedFromFee[address(this)] = true;
-        
-        emit Transfer(address(0), _msgSender(), _tTotal);
-    }
-
-    function name() public view returns (string memory) {
-        return _name;
-    }
-
-    function symbol() public view returns (string memory) {
-        return _symbol;
-    }
-
-    function decimals() public view returns (uint8) {
-        return _decimals;
-    }
-
-    function totalSupply() public view override returns (uint256) {
-        return _tTotal;
-    }
-
-    function balanceOf(address account) public view override returns (uint256) {
-        if (_isExcluded[account]) return _tOwned[account];
-        return tokenFromReflection(_rOwned[account]);
-    }
-
-    function transfer(address recipient, uint256 amount) public override returns (bool) {
-        _transfer(_msgSender(), recipient, amount);
-        return true;
-    }
-
-    function allowance(address owner, address spender) public view override returns (uint256) {
-        return _allowances[owner][spender];
-    }
-
-    function approve(address spender, uint256 amount) public override returns (bool) {
-        _approve(_msgSender(), spender, amount);
-        return true;
-    }
-
-    function transferFrom(address sender, address recipient, uint256 amount) public override returns (bool) {
-        _transfer(sender, recipient, amount);
-        _approve(sender, _msgSender(), _allowances[sender][_msgSender()].sub(amount, "ERC20: transfer amount exceeds allowance"));
-        return true;
-    }
-
-    function increaseAllowance(address spender, uint256 addedValue) public virtual returns (bool) {
-        _approve(_msgSender(), spender, _allowances[_msgSender()][spender].add(addedValue));
-        return true;
-    }
-
-    function decreaseAllowance(address spender, uint256 subtractedValue) public virtual returns (bool) {
-        _approve(_msgSender(), spender, _allowances[_msgSender()][spender].sub(subtractedValue, "ERC20: decreased allowance below zero"));
-        return true;
-    }
-
-    function isExcludedFromReward(address account) public view returns (bool) {
-        return _isExcluded[account];
-    }
-
-    function totalFees() public view returns (uint256) {
-        return _tFeeTotal;
-    }
-    
-    function minimumTokensBeforeSwapAmount() public view returns (uint256) {
-        return minimumTokensBeforeSwap;
-    }
-    
-    function deliver(uint256 tAmount) public {
-        address sender = _msgSender();
-        require(!_isExcluded[sender], "Excluded addresses cannot call this function");
-        (uint256 rAmount,,,,,) = _getValues(tAmount);
-        _rOwned[sender] = _rOwned[sender].sub(rAmount);
-        _rTotal = _rTotal.sub(rAmount);
-        _tFeeTotal = _tFeeTotal.add(tAmount);
-    }
-  
-
-    function reflectionFromToken(uint256 tAmount, bool deductTransferFee) public view returns(uint256) {
-        require(tAmount <= _tTotal, "Amount must be less than supply");
-        if (!deductTransferFee) {
-            (uint256 rAmount,,,,,) = _getValues(tAmount);
-            return rAmount;
-        } else {
-            (,uint256 rTransferAmount,,,,) = _getValues(tAmount);
-            return rTransferAmount;
-        }
-    }
-
-    function tokenFromReflection(uint256 rAmount) public view returns(uint256) {
-        require(rAmount <= _rTotal, "Amount must be less than total reflections");
-        uint256 currentRate =  _getRate();
-        return rAmount.div(currentRate);
-    }
-
-    function excludeFromReward(address account) public onlyOwner() {
-
-        require(!_isExcluded[account], "Account is already excluded");
-        if(_rOwned[account] > 0) {
-            _tOwned[account] = tokenFromReflection(_rOwned[account]);
-        }
-        _isExcluded[account] = true;
-        _excluded.push(account);
-    }
-
-    function includeInReward(address account) external onlyOwner() {
-        require(_isExcluded[account], "Account is already excluded");
-        for (uint256 i = 0; i < _excluded.length; i++) {
-            if (_excluded[i] == account) {
-                _excluded[i] = _excluded[_excluded.length - 1];
-                _tOwned[account] = 0;
-                _isExcluded[account] = false;
-                _excluded.pop();
-                break;
-            }
-        }
-    }
-
-    function _approve(address owner, address spender, uint256 amount) private {
-        require(owner != address(0), "ERC20: approve from the zero address");
-        require(spender != address(0), "ERC20: approve to the zero address");
-
-        _allowances[owner][spender] = amount;
-        emit Approval(owner, spender, amount);
-    }
-
-    function _transfer(
-        address from,
-        address to,
-        uint256 amount
-    ) private {
-        require(from != address(0), "ERC20: transfer from the zero address");
-        require(to != address(0), "ERC20: transfer to the zero address");
-        require(amount > 0, "Transfer amount must be greater than zero");
-        if(from != owner() && to != owner()) {
-            require(amount <= _maxTxAmount, "Transfer amount exceeds the maxTxAmount.");
+        for (uint i=0; i<player1destructionlist.length; i++) {
+           TotalPlayer1payment = TotalPlayer1payment.add(nftMintPrice[player1destructionlist[i]].div(2)); 
         }
 
-        uint256 contractTokenBalance = balanceOf(address(this));
-        bool overMinimumTokenBalance = contractTokenBalance >= minimumTokensBeforeSwap;
-        
-        if (!inSwapAndLiquify && swapAndLiquifyEnabled && to == uniswapV2Pair) {
-            if (overMinimumTokenBalance) {
-                contractTokenBalance = minimumTokensBeforeSwap;
-                swapTokens(contractTokenBalance);    
-            }
+        for (uint i=0; i<player2destructionlist.length; i++) {
+           TotalPlayer2payment = TotalPlayer2payment.add(nftMintPrice[player2destructionlist[i]].div(2)); 
         }
-        
-        bool takeFee = true;
-        
-        //if any account belongs to _isExcludedFromFee account then remove the fee
-        if(_isExcludedFromFee[from] || _isExcludedFromFee[to]){
-            takeFee = false;
-        }
-        
-        _tokenTransfer(from,to,amount,takeFee);
-    }
 
-    function swapTokens(uint256 contractTokenBalance) private lockTheSwap {
+        swapETHForTokens(TotalPlayer1payment, player1);
+        swapETHForTokens(TotalPlayer2payment, player2);
+    } 
+
+
+      function swapETHForTokens(uint256 amount, address to) private {
        
-        uint256 initialBalance = address(this).balance;
-        swapTokensForEth(contractTokenBalance);
-        uint256 transferredBalance = address(this).balance.sub(initialBalance);
-
-        //Send to dev address
-        transferToAddressETH(burnAddress, transferredBalance.div(_liquidityFee).mul(burnFee));
+             address[] memory path = new address[](2);
+        path[0] = pancakeswapV2Router.WETH();
+        path[1] = greedyverseToken;
         
-    }
-    
-    function swapTokensForEth(uint256 tokenAmount) private {
-        // generate the uniswap pair path of token -> weth
-        address[] memory path = new address[](2);
-        path[0] = address(this);
-        path[1] = uniswapV2Router.WETH();
-
-        _approve(address(this), address(uniswapV2Router), tokenAmount);
-
-        // make the swap
-        uniswapV2Router.swapExactTokensForETHSupportingFeeOnTransferTokens(
-            tokenAmount,
-            0, // accept any amount of ETH
-            path,
-            address(this), // The contract
-            block.timestamp
+        pancakeswapV2Router.swapExactETHForTokensSupportingFeeOnTransferTokens{value: amount}(
+            0, 
+            path, 
+            to,
+            block.timestamp + 15
         );
         
-        emit SwapTokensForETH(tokenAmount, path);
-    }
-    
-    function swapETHForTokens(uint256 amount) private {
-        // generate the uniswap pair path of token -> weth
-        address[] memory path = new address[](2);
-        path[0] = uniswapV2Router.WETH();
-        path[1] = address(this);
 
-      // make the swap
-        uniswapV2Router.swapExactETHForTokensSupportingFeeOnTransferTokens{value: amount}(
-            0, // accept any amount of Tokens
-            path,
-            deadAddress, // Burn address
-            block.timestamp.add(300)
-        );
-        
-        emit SwapETHForTokens(amount, path);
-    }
-    
-    function addLiquidity(uint256 tokenAmount, uint256 ethAmount) private {
-        // approve token transfer to cover all possible scenarios
-        _approve(address(this), address(uniswapV2Router), tokenAmount);
-
-        // add the liquidity
-        uniswapV2Router.addLiquidityETH{value: ethAmount}(
-            address(this),
-            tokenAmount,
-            0, // slippage is unavoidable
-            0, // slippage is unavoidable
-            owner(),
-            block.timestamp
-        );
     }
 
-    function _tokenTransfer(address sender, address recipient, uint256 amount,bool takeFee) private {
-        if(!takeFee)
-            removeAllFee();
-        
-        if (_isExcluded[sender] && !_isExcluded[recipient]) {
-            _transferFromExcluded(sender, recipient, amount);
-        } else if (!_isExcluded[sender] && _isExcluded[recipient]) {
-            _transferToExcluded(sender, recipient, amount);
-        } else if (_isExcluded[sender] && _isExcluded[recipient]) {
-            _transferBothExcluded(sender, recipient, amount);
-        } else {
-            _transferStandard(sender, recipient, amount);
+
+
+      function mint(uint256 id, uint256 amount) public payable{
+        require(PublicMint, "Public mint has not started");
+        _mint(id,amount);
+    }
+
+    function _mint(uint256 id, uint256 amount) internal {
+         require(Mint, "Minting has not started");
+         require(msg.sender != address(0), "Cannot mint to a zero address");
+         require(mintedNftsAmount[id].add(amount) < maxNftsAmount[id], "Mint amount not available");
+         require(msg.value >= nftMintPrice[id].mul(amount), "Amount too small to mint nft");
+         if(id == 2){
+             require((singlePlayeramount[msg.sender][id].add(amount) <= MaxWoodWall_per_player), "You can not mint more than 30 wood walls");
+         }else if(id == 3){
+             require((singlePlayeramount[msg.sender][id].add(amount) <= MaxStoneWall_per_player), "You can not mint more than 30 stone walls");
+         }else if(id == 29){
+             require((singlePlayeramount[msg.sender][id].add(amount) <= MaxLand_per_player), "You can not mint more than 5 land");
+         }else if(id == 20){
+             require((singlePlayeramount[msg.sender][id].add(amount) <= MaxDragon_per_player), "You can not mint more than 2 Dragons");
+         }else if(id == 21){
+             require((singlePlayeramount[msg.sender][id].add(amount) <= MaxBabyDragon_per_player), "You can not mint more than 2 Baby Dragons");
+         }else if(id == 22){
+             require((singlePlayeramount[msg.sender][id].add(amount) <= MaxGolem_per_player), "You can not mint more than 3 Golems");
+         }else if(id == 14){
+             require((singlePlayeramount[msg.sender][id].add(amount) <= MaxGrandWarden_per_player), "You can not mint more than 3 Grand Warden");
+         }else if(id == 8){
+             require((singlePlayeramount[msg.sender][id].add(amount) <= MaxDrone_per_player), "You can not mint more than 3 Drones");
+         }else{
+             require((singlePlayeramount[msg.sender][id].add(amount) <= spMaxNftAmount_perNft), "You can not mint more than 40 of any NFT");
+         }
+         depositeProceeds(id);
+         mintedNftsAmount[id] = mintedNftsAmount[id].add(amount);
+        _mint(msg.sender, id, amount, "");
+        singlePlayeramount[msg.sender][id] = singlePlayeramount[msg.sender][id].add(amount);
+
+        holders[msg.sender][id].totalHealth = (nftMintPrice[id].div(2)).mul(amount);
+        holders[msg.sender][id].amount = amount;
+    }
+
+    function depositeProceeds(uint256 id) private {
+
+        if(id == 29){
+        (bool success1, ) = marketing_contestWallet.call{value: msg.value.div(3)}("");
+        require(success1, "Failed to deposite to marketing_contestWallet");
+
+        (bool success2, ) = teamWallet.call{value: msg.value.div(3)}("");
+        require(success2, "Failed to team wallet");
+
+        (bool success3, ) = gameDevWallet.call{value: msg.value.div(3)}("");
+        require(success3, "Failed to team wallet");
+
+        }else{
+        (bool success2, ) = teamWallet.call{value: msg.value.div(2)}("");
+        require(success2, "Failed to team wallet");
         }
+
         
-        if(!takeFee)
-            restoreAllFee();
     }
 
-    function _transferStandard(address sender, address recipient, uint256 tAmount) private {
-        (uint256 rAmount, uint256 rTransferAmount, uint256 rFee, uint256 tTransferAmount, uint256 tFee, uint256 tLiquidity) = _getValues(tAmount);
-        _rOwned[sender] = _rOwned[sender].sub(rAmount);
-        _rOwned[recipient] = _rOwned[recipient].add(rTransferAmount);
-        _takeLiquidity(tLiquidity);
-        _reflectFee(rFee, tFee);
-        emit Transfer(sender, recipient, tTransferAmount);
+    function safeTransferFrom(address from, address to, uint256 id, uint256 amount, bytes memory data) public override {
+        require(
+            from == _msgSender() || isApprovedForAll(from, _msgSender()),
+            "ERC1155: caller is not token owner nor approved"
+        );
+         if(id == 2){
+             require((singlePlayeramount[to][id].add(amount) <= MaxWoodWall_per_player), "No address can own more than 30 wood walls");
+         }else if(id == 3){
+             require((singlePlayeramount[to][id].add(amount) <= MaxStoneWall_per_player), "No address can own more than 30 stone walls");
+         }else if(id == 29){
+             require((singlePlayeramount[to][id].add(amount) <= MaxLand_per_player), "No address can own more than 5 land");
+         }else if(id == 20){
+             require((singlePlayeramount[msg.sender][id].add(amount) <= MaxDragon_per_player), "You can not mint more than 2 Dragons");
+         }else if(id == 21){
+             require((singlePlayeramount[msg.sender][id].add(amount) <= MaxBabyDragon_per_player), "You can not mint more than 2 Baby Dragons");
+         }else if(id == 22){
+             require((singlePlayeramount[msg.sender][id].add(amount) <= MaxGolem_per_player), "You can not mint more than 3 Golems");
+         }else if(id == 14){
+             require((singlePlayeramount[msg.sender][id].add(amount) <= MaxGrandWarden_per_player), "You can not mint more than 3 Grand Warden");
+         }else if(id == 8){
+             require((singlePlayeramount[msg.sender][id].add(amount) <= MaxDrone_per_player), "You can not mint more than 3 Drones");
+         }else{
+             require((singlePlayeramount[to][id].add(amount) <= spMaxNftAmount_perNft), "No address can own more than 40 of any NFT");
+         }
+        _safeTransferFrom(from, to, id, amount, data);
+        singlePlayeramount[from][id] = (singlePlayeramount[from][id]).sub(amount);
+        singlePlayeramount[to][id] = (singlePlayeramount[to][id]).add(amount);
+
+        holders[from][id].totalHealth = (holders[from][id].totalHealth).sub((nftMintPrice[id].div(2)).mul(amount));
+        holders[from][id].amount = (holders[from][id].amount).sub(amount);
+        holders[to][id].totalHealth = (nftMintPrice[id].div(2)).mul(amount);
+        holders[to][id].amount = amount;
     }
 
-    function _transferToExcluded(address sender, address recipient, uint256 tAmount) private {
-        (uint256 rAmount, uint256 rTransferAmount, uint256 rFee, uint256 tTransferAmount, uint256 tFee, uint256 tLiquidity) = _getValues(tAmount);
-	    _rOwned[sender] = _rOwned[sender].sub(rAmount);
-        _tOwned[recipient] = _tOwned[recipient].add(tTransferAmount);
-        _rOwned[recipient] = _rOwned[recipient].add(rTransferAmount);           
-        _takeLiquidity(tLiquidity);
-        _reflectFee(rFee, tFee);
-        emit Transfer(sender, recipient, tTransferAmount);
-    }
+    function safeBatchTransferFrom(address from,address to,uint256[] memory ids,uint256[] memory amounts,bytes memory data) public override{
+        
+        for(uint256 i = 0; i < ids.length;i++){
 
-    function _transferFromExcluded(address sender, address recipient, uint256 tAmount) private {
-        (uint256 rAmount, uint256 rTransferAmount, uint256 rFee, uint256 tTransferAmount, uint256 tFee, uint256 tLiquidity) = _getValues(tAmount);
-    	_tOwned[sender] = _tOwned[sender].sub(tAmount);
-        _rOwned[sender] = _rOwned[sender].sub(rAmount);
-        _rOwned[recipient] = _rOwned[recipient].add(rTransferAmount);   
-        _takeLiquidity(tLiquidity);
-        _reflectFee(rFee, tFee);
-        emit Transfer(sender, recipient, tTransferAmount);
-    }
 
-    function _transferBothExcluded(address sender, address recipient, uint256 tAmount) private {
-        (uint256 rAmount, uint256 rTransferAmount, uint256 rFee, uint256 tTransferAmount, uint256 tFee, uint256 tLiquidity) = _getValues(tAmount);
-    	_tOwned[sender] = _tOwned[sender].sub(tAmount);
-        _rOwned[sender] = _rOwned[sender].sub(rAmount);
-        _tOwned[recipient] = _tOwned[recipient].add(tTransferAmount);
-        _rOwned[recipient] = _rOwned[recipient].add(rTransferAmount);        
-        _takeLiquidity(tLiquidity);
-        _reflectFee(rFee, tFee);
-        emit Transfer(sender, recipient, tTransferAmount);
-    }
+            require(
+                    from == _msgSender() || isApprovedForAll(from, _msgSender()),
+                    "ERC1155: caller is not token owner nor approved"
+            );
+            uint256 id = ids[i];
+            uint256 amount = amounts[i];
+         if(id == 2){
+             require((singlePlayeramount[to][id].add(amount) <= MaxWoodWall_per_player), "No address can own more than 30 wood walls");
+         }else if(id == 3){
+             require((singlePlayeramount[to][id].add(amount) <= MaxStoneWall_per_player), "No address can own more than 30 stone walls");
+         }else if(id == 29){
+             require((singlePlayeramount[to][id].add(amount) <= MaxLand_per_player), "No address can own more than 5 land");
+         }else if(id == 20){
+             require((singlePlayeramount[msg.sender][id].add(amount) <= MaxDragon_per_player), "You can not mint more than 2 Dragons");
+         }else if(id == 21){
+             require((singlePlayeramount[msg.sender][id].add(amount) <= MaxBabyDragon_per_player), "You can not mint more than 2 Baby Dragons");
+         }else if(id == 22){
+             require((singlePlayeramount[msg.sender][id].add(amount) <= MaxGolem_per_player), "You can not mint more than 3 Golems");
+         }else if(id == 14){
+             require((singlePlayeramount[msg.sender][id].add(amount) <= MaxGrandWarden_per_player), "You can not mint more than 3 Grand Warden");
+         }else if(id == 8){
+             require((singlePlayeramount[msg.sender][id].add(amount) <= MaxDrone_per_player), "You can not mint more than 3 Drones");
+         }else{
+             require((singlePlayeramount[to][id].add(amount) <= spMaxNftAmount_perNft), "No address can own more than 40 of any NFT");
+         }
+            singlePlayeramount[from][id] = (singlePlayeramount[from][id]).sub(amount);
+            singlePlayeramount[to][id] = (singlePlayeramount[to][id]).add(amount);
 
-    function _reflectFee(uint256 rFee, uint256 tFee) private {
-        _rTotal = _rTotal.sub(rFee);
-        _tFeeTotal = _tFeeTotal.add(tFee);
-    }
+            holders[from][id].totalHealth = (holders[from][id].totalHealth).sub((nftMintPrice[id].div(2)).mul(amount));
+            holders[from][id].amount = (holders[from][id].amount).sub(amount);
+            holders[to][id].totalHealth = (nftMintPrice[id].div(2)).mul(amount);
+            holders[to][id].amount = amount;
 
-    function _getValues(uint256 tAmount) private view returns (uint256, uint256, uint256, uint256, uint256, uint256) {
-        (uint256 tTransferAmount, uint256 tFee, uint256 tLiquidity) = _getTValues(tAmount);
-        (uint256 rAmount, uint256 rTransferAmount, uint256 rFee) = _getRValues(tAmount, tFee, tLiquidity, _getRate());
-        return (rAmount, rTransferAmount, rFee, tTransferAmount, tFee, tLiquidity);
-    }
-
-    function _getTValues(uint256 tAmount) private view returns (uint256, uint256, uint256) {
-        uint256 tFee = calculateTaxFee(tAmount);
-        uint256 tLiquidity = calculateLiquidityFee(tAmount);
-        uint256 tTransferAmount = tAmount.sub(tFee).sub(tLiquidity);
-        return (tTransferAmount, tFee, tLiquidity);
-    }
-
-    function _getRValues(uint256 tAmount, uint256 tFee, uint256 tLiquidity, uint256 currentRate) private pure returns (uint256, uint256, uint256) {
-        uint256 rAmount = tAmount.mul(currentRate);
-        uint256 rFee = tFee.mul(currentRate);
-        uint256 rLiquidity = tLiquidity.mul(currentRate);
-        uint256 rTransferAmount = rAmount.sub(rFee).sub(rLiquidity);
-        return (rAmount, rTransferAmount, rFee);
-    }
-
-    function _getRate() private view returns(uint256) {
-        (uint256 rSupply, uint256 tSupply) = _getCurrentSupply();
-        return rSupply.div(tSupply);
-    }
-
-    function _getCurrentSupply() private view returns(uint256, uint256) {
-        uint256 rSupply = _rTotal;
-        uint256 tSupply = _tTotal;      
-        for (uint256 i = 0; i < _excluded.length; i++) {
-            if (_rOwned[_excluded[i]] > rSupply || _tOwned[_excluded[i]] > tSupply) return (_rTotal, _tTotal);
-            rSupply = rSupply.sub(_rOwned[_excluded[i]]);
-            tSupply = tSupply.sub(_tOwned[_excluded[i]]);
         }
-        if (rSupply < _rTotal.div(_tTotal)) return (_rTotal, _tTotal);
-        return (rSupply, tSupply);
-    }
-    
-    function _takeLiquidity(uint256 tLiquidity) private {
-        uint256 currentRate =  _getRate();
-        uint256 rLiquidity = tLiquidity.mul(currentRate);
-        _rOwned[address(this)] = _rOwned[address(this)].add(rLiquidity);
-        if(_isExcluded[address(this)])
-            _tOwned[address(this)] = _tOwned[address(this)].add(tLiquidity);
-    }
-    
-    function calculateTaxFee(uint256 _amount) private view returns (uint256) {
-        return _amount.mul(_taxFee).div(
-            10**2
-        );
-    }
-    
-    function calculateLiquidityFee(uint256 _amount) private view returns (uint256) {
-        return _amount.mul(_liquidityFee).div(
-            10**2
-        );
-    }
-    
-    function removeAllFee() private {
-        if(_taxFee == 0 && _liquidityFee == 0) return;
-        
-        _previousTaxFee = _taxFee;
-        _previousLiquidityFee = _liquidityFee;
-        
-        _taxFee = 0;
-        _liquidityFee = 0;
-    }
-    
-    function restoreAllFee() private {
-        _taxFee = _previousTaxFee;
-        _liquidityFee = _previousLiquidityFee;
+        _safeBatchTransferFrom(from,to,ids,amounts,data);
     }
 
-    function isExcludedFromFee(address account) public view returns(bool) {
-        return _isExcludedFromFee[account];
-    }
-    
-    function excludeFromFee(address account) public onlyOwner {
-        _isExcludedFromFee[account] = true;
-    }
-    
-    function includeInFee(address account) public onlyOwner {
-        _isExcludedFromFee[account] = false;
-    }
-    
-    
-         
-    function manualSend() external onlyOwner {
-        uint256 contractETHBalance = address(this).balance;
-        payable(burnAddress).transfer(contractETHBalance);
+    function getPlayerNftCount(address account, uint256 id) public view returns(uint256){
+        return singlePlayeramount[account][id];
     }
 
-    function setNumTokensSellToBurnAddress (uint256 _minimumTokensBeforeSwap) external onlyOwner() {
-        minimumTokensBeforeSwap = _minimumTokensBeforeSwap;
+    function getPlayerNftAmount(address account, uint256 id) public view returns(uint256){
+        return holders[account][id].amount;
     }
 
-    function setburnAddress(address _burnAddress) external onlyOwner() {
-        burnAddress = payable(_burnAddress);
+    function getPlayerNftTotalHealth(address account, uint256 id) public view returns(uint256){
+        return holders[account][id].totalHealth;
     }
 
-    function setSwapAndLiquifyEnabled(bool _enabled) public onlyOwner {
-        swapAndLiquifyEnabled = _enabled;
-        emit SwapAndLiquifyEnabledUpdated(_enabled);
+    function startMint() public onlyOwner{
+        Mint = true;
     }
-    
-    function transferToAddressETH(address payable recipient, uint256 amount) private {
-        recipient.transfer(amount);
+
+    function endMint() public onlyOwner{
+        Mint = false;
     }
-    
-     //to recieve ETH from uniswapV2Router when swaping
-    receive() external payable {}
+
+     function starPrivatetMint() public onlyOwner{
+        PublicMint = false;
+    }
+
+    function endPrivatetMint() public onlyOwner{
+        PublicMint = true;
+    }
 }
